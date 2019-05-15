@@ -50,6 +50,7 @@
     "ethereumjs-util": "^6.1.0",
     "ganache-cli": "^6.4.1",
     "lodash": "^4.17.11",
+    "openzeppelin-test-helpers": "^0.3.2",
     "rimraf": "^2.6.3",
     "solc": "^0.5.7",
     "solhint": "^2.0.0",
