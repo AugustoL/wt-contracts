@@ -1,8 +1,5 @@
-const { TestHelper } = require('zos');
-const { Contracts, ZWeb3 } = require('zos-lib');
-const { BN, constants, expectEvent, shouldFail } = require('openzeppelin-test-helpers');
+const { shouldFail } = require('openzeppelin-test-helpers');
 const assert = require('chai').assert;
-const help = require('./helpers/index.js');
 
 const LifTokenTest = artifacts.require('LifTokenTest');
 
@@ -66,5 +63,4 @@ contract('LifToken', (accounts) => {
       token.decreaseApproval(accounts[2], 10, { from: accounts[1] })
     );
   });
-
 });
