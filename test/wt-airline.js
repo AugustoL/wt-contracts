@@ -14,24 +14,26 @@ const WTAirline = Contracts.getFromLocal('Airline');
 // eaiser interaction with truffle-contract
 const AbstractWTAirline = artifacts.require('AbstractAirline');
 const AbstractWTAirlineIndex = artifacts.require('AbstractWTAirlineIndex');
+const LifTokenTest = artifacts.require('LifTokenTest');
 
 contract('Airline', (accounts) => {
   const airlineUri = 'bzz://something';
   const indexOwner = accounts[1];
   const airlineAccount = accounts[2];
   const nonOwnerAccount = accounts[3];
-  const tokenAddress = accounts[5];
   let project;
   let airlineAddress = help.zeroAddress;
   let wtAirlineIndex;
   let wtAirline;
+  let token;
 
   // Create and register a airline
   beforeEach(async () => {
     project = await TestHelper();
+    token = await LifTokenTest.new(accounts[1], 100);
     const airlineIndexProxy = await project.createProxy(WTAirlineIndex, {
       initFunction: 'initialize',
-      initArgs: [indexOwner, tokenAddress],
+      initArgs: [indexOwner, token.address],
     });
     wtAirlineIndex = await AbstractWTAirlineIndex.at(airlineIndexProxy.address);
     await wtAirlineIndex.registerAirline(airlineUri, { from: airlineAccount });

@@ -17,32 +17,34 @@ const WTAirline = artifacts.require('Airline');
 const TruffleWTAirlineIndex = artifacts.require('WTAirlineIndex');
 const TruffleWTAirlineIndexUpgradeabilityTest = artifacts.require('WTAirlineIndexUpgradeabilityTest');
 const AirlineUpgradeabilityTest = artifacts.require('AirlineUpgradeabilityTest');
+const LifTokenTest = artifacts.require('LifTokenTest');
 
 contract('WTAirlineIndex', (accounts) => {
   const airlineIndexOwner = accounts[1];
   const proxyOwner = accounts[2];
   const airlineAccount = accounts[3];
   const nonOwnerAccount = accounts[4];
-  const tokenAddress = accounts[5];
 
   let airlineIndexProxy;
   let airlineIndex;
   let project;
+  let token;
 
   // Deploy new airlineIndex but use AbstractWTAirlineIndex for contract interaction
   beforeEach(async () => {
     project = await TestHelper();
+    token = await LifTokenTest.new(accounts[1], 100);
     airlineIndexProxy = await project.createProxy(WTAirlineIndex, {
       from: proxyOwner,
       initFunction: 'initialize',
-      initArgs: [airlineIndexOwner, tokenAddress],
+      initArgs: [airlineIndexOwner, token.address],
     });
     airlineIndex = await AbstractWTAirlineIndex.at(airlineIndexProxy.address);
   });
 
   it('should set liftoken', async () => {
     // ownership setup is verified in setLifToken tests
-    assert.equal(await airlineIndex.LifToken(), tokenAddress);
+    assert.equal(await airlineIndex.LifToken(), token.address);
   });
 
   describe('transferOwnership', async () => {
@@ -51,7 +53,7 @@ contract('WTAirlineIndex', (accounts) => {
       await wtAirlineIndex.transferOwnership(proxyOwner, { from: airlineIndexOwner });
       // We cannot access _owner directly, it is not public
       try {
-        await wtAirlineIndex.setLifToken(tokenAddress, { from: airlineIndexOwner });
+        await wtAirlineIndex.setLifToken(token.address, { from: airlineIndexOwner });
         assert(false);
       } catch (e) {
         assert(help.isInvalidOpcodeEx(e));
@@ -61,8 +63,7 @@ contract('WTAirlineIndex', (accounts) => {
 
     it('should not transfer ownership when initiated from a non-owner', async () => {
       try {
-        await (await TruffleWTAirlineIndex.at(airlineIndex.address)).transferOwnership(tokenAddress, { from: nonOwnerAccount });
-        assert(false);
+        await (await TruffleWTAirlineIndex.at(airlineIndex.address)).transferOwnership(token.address, { from: nonOwnerAccount });
       } catch (e) {
         assert(help.isInvalidOpcodeEx(e));
       }
@@ -107,14 +108,14 @@ contract('WTAirlineIndex', (accounts) => {
   describe('setLifToken', () => {
     it('should set the LifToken address', async () => {
       const wtAirlineIndex = await TruffleWTAirlineIndex.at(airlineIndex.address);
-      await wtAirlineIndex.setLifToken(tokenAddress, { from: airlineIndexOwner });
+      await wtAirlineIndex.setLifToken(token.address, { from: airlineIndexOwner });
       const setValue = await wtAirlineIndex.LifToken();
-      assert.equal(setValue, tokenAddress);
+      assert.equal(setValue, token.address);
     });
 
     it('should throw if non-owner sets the LifToken address', async () => {
       try {
-        await (await TruffleWTAirlineIndex.at(airlineIndex.address)).setLifToken(tokenAddress, { from: nonOwnerAccount });
+        await (await TruffleWTAirlineIndex.at(airlineIndex.address)).setLifToken(token.address, { from: nonOwnerAccount });
         assert(false);
       } catch (e) {
         assert(help.isInvalidOpcodeEx(e));

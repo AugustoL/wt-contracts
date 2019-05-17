@@ -14,24 +14,26 @@ const WTHotel = Contracts.getFromLocal('Hotel');
 // eaiser interaction with truffle-contract
 const AbstractWTHotel = artifacts.require('AbstractHotel');
 const AbstractWTHotelIndex = artifacts.require('AbstractWTHotelIndex');
+const LifTokenTest = artifacts.require('LifTokenTest');
 
 contract('Hotel', (accounts) => {
   const hotelUri = 'bzz://something';
   const indexOwner = accounts[1];
   const hotelAccount = accounts[2];
   const nonOwnerAccount = accounts[3];
-  const tokenAddress = accounts[5];
   let project;
   let hotelAddress = help.zeroAddress;
   let wtHotelIndex;
   let wtHotel;
+  let token;
 
   // Create and register a hotel
   beforeEach(async () => {
     project = await TestHelper();
+    token = await LifTokenTest.new(accounts[1], 100);
     const hotelIndexProxy = await project.createProxy(WTHotelIndex, {
       initFunction: 'initialize',
-      initArgs: [indexOwner, tokenAddress],
+      initArgs: [indexOwner, token.address],
     });
     wtHotelIndex = await AbstractWTHotelIndex.at(hotelIndexProxy.address);
     await wtHotelIndex.registerHotel(hotelUri, { from: hotelAccount });

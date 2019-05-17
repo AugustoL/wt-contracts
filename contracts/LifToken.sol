@@ -439,7 +439,7 @@ contract LifToken is StandardToken, MintableToken, PausableToken {
   }
 }
 
-contract LifTokenMock is LifToken {
+contract LifTokenTest is LifToken {
   constructor(address addr, uint256 initialBalance) public {
       totalSupply_ = totalSupply_.add(initialBalance);
       balances[addr] = balances[addr].add(initialBalance);
