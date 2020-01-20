@@ -23,13 +23,17 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
     uint256 public constant STANDARD_VALIDITY = 31536000;
     
     // did/svc/WindingTreeURI Service attribute for WT Organizations
-    bytes32 public constant WindingTreeURIAttribute = 0x6469642f7376632f57696e64696e675472656555524900000000000000000000;
+    bytes32 public constant WindingTreeURIAttribute = 
+        0x6469642f7376632f57696e64696e675472656555524900000000000000000000;
     // did/svc/WindingTreeHash Service attribute for WT Organizations
-    bytes32 public constant WindingTreeHashAttribute = 0x6469642f7376632f57696e64696e675472656548617368000000000000000000;
+    bytes32 public constant WindingTreeHashAttribute = 
+        0x6469642f7376632f57696e64696e675472656548617368000000000000000000;
     
     // Ethereum DID Registry delegate types
-    bytes32 public constant Secp256k1SignatureAuthentication2018 = 0x7369674175746800000000000000000000000000000000000000000000000000;
-    bytes32 public constant Secp256k1VerificationKey2018 = 0x766572694b657900000000000000000000000000000000000000000000000000;
+    bytes32 public constant Secp256k1SignatureAuthentication2018 = 
+        0x7369674175746800000000000000000000000000000000000000000000000000;
+    bytes32 public constant Secp256k1VerificationKey2018 = 
+        0x766572694b657900000000000000000000000000000000000000000000000000;
 
     
     // Arbitrary locator of the off-chain stored Organization data
@@ -183,8 +187,12 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
     function addAssociatedKey(address addr) public onlyOwner returns(address) {
         require(addr != address(0), 'Organization: Cannot add associatedKey with 0x0 address');
         require(associatedKeysIndex[addr] == 0, 'Organization: Cannot add associatedKey twice');
-        EthereumDIDRegistry(_ethereumDIDRegistry).addDelegate(address(this), Secp256k1SignatureAuthentication2018, addr, STANDARD_VALIDITY);
-        EthereumDIDRegistry(_ethereumDIDRegistry).addDelegate(address(this), Secp256k1VerificationKey2018, addr, STANDARD_VALIDITY);
+        EthereumDIDRegistry(_ethereumDIDRegistry).addDelegate(
+            address(this), Secp256k1SignatureAuthentication2018, addr, STANDARD_VALIDITY
+        );
+        EthereumDIDRegistry(_ethereumDIDRegistry).addDelegate(
+            address(this), Secp256k1VerificationKey2018, addr, STANDARD_VALIDITY
+        );
         associatedKeysIndex[addr] = associatedKeys.length;
         associatedKeys.push(addr);
         emit AssociatedKeyAdded(addr, associatedKeysIndex[addr]);
@@ -198,8 +206,12 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
     function removeAssociatedKey(address addr) public onlyOwner {
         require(addr != address(0), 'Organization: Cannot remove associatedKey with 0x0 address');
         require(associatedKeysIndex[addr] != uint(0), 'Organization: Cannot remove unknown organization');
-        EthereumDIDRegistry(_ethereumDIDRegistry).revokeDelegate(address(this), Secp256k1SignatureAuthentication2018, addr);
-        EthereumDIDRegistry(_ethereumDIDRegistry).revokeDelegate(address(this), Secp256k1VerificationKey2018, addr);
+        EthereumDIDRegistry(_ethereumDIDRegistry).revokeDelegate(
+            address(this), Secp256k1SignatureAuthentication2018, addr
+        );
+        EthereumDIDRegistry(_ethereumDIDRegistry).revokeDelegate(
+            address(this), Secp256k1VerificationKey2018, addr
+        );
         delete associatedKeys[associatedKeysIndex[addr]];
         delete associatedKeysIndex[addr];
         emit AssociatedKeyRemoved(addr);
