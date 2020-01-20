@@ -2,6 +2,8 @@ const TestHelper = require('./helpers/zostest');
 const { Contracts, ZWeb3 } = require('@openzeppelin/upgrades');
 const assert = require('chai').assert;
 const help = require('./helpers/index.js');
+const { time } = require('@openzeppelin/test-helpers');
+const { delegateTypes } = require('ethr-did-resolver');
 
 ZWeb3.initialize(web3.currentProvider);
 // workaround for https://github.com/zeppelinos/zos/issues/704
@@ -10,6 +12,7 @@ Contracts.setArtifactsDefaults({
 });
 
 const Organization = Contracts.getFromLocal('Organization');
+const EthereumDIDRegistry = Contracts.getFromLocal('EthereumDIDRegistry');
 const OrganizationInterface = Contracts.getFromLocal('OrganizationInterface');
 const OrganizationUpgradeabilityTest = Contracts.getFromLocal('OrganizationUpgradeabilityTest');
 
@@ -19,10 +22,11 @@ contract('Organization', (accounts) => {
   const organizationOwner = accounts[1];
   const proxyOwner = accounts[2];
   const nonOwnerAccount = accounts[3];
-
+  const DELEGATE_ID_HASH = web3.utils.keccak256(web3.utils.keccak256('agent'));
   let organizationProxy;
   let organization;
   let project;
+  let ethereumDIDRegistry;
 
   beforeEach(async () => {
     project = await TestHelper();
@@ -31,7 +35,9 @@ contract('Organization', (accounts) => {
       initFunction: 'initialize',
       initArgs: [organizationOwner, organizationUri, organizationHash],
     });
+    ethereumDIDRegistry = await EthereumDIDRegistry.new();
     organization = await Organization.at(organizationProxy.address);
+    await organization.methods.setEthereumDIDRegistry(ethereumDIDRegistry.address).send({ from: organizationOwner });
   });
 
   describe('Constructor', () => {
@@ -213,8 +219,9 @@ contract('Organization', (accounts) => {
 
   describe('transferOwnership', () => {
     it('should transfer contract and emit OwnershipTransferred', async () => {
-      const receipt = await organization.methods.transferOwnership(nonOwnerAccount).send({ from: organizationOwner });
-      assert.equal(Object.keys(receipt.events).length, 1);
+      const receipt = await organization.methods.transferOwnership(nonOwnerAccount).send({ from: organizationOwner, gasLimit: 6000000 });
+      assert.equal(Object.keys(receipt.events).length, 2);
+      assert.equal(await ethereumDIDRegistry.methods.identityOwner(organization.address).call(), nonOwnerAccount);
       assert.equal(receipt.events.OwnershipTransferred.returnValues.previousOwner, organizationOwner);
       assert.equal(receipt.events.OwnershipTransferred.returnValues.newOwner, nonOwnerAccount);
       const info = await help.getOrganizationInfo(organization);
@@ -243,7 +250,21 @@ contract('Organization', (accounts) => {
   describe('addAssociatedKey', async () => {
     it('should add associatedKey and emit', async () => {
       const receipt = await organization.methods.addAssociatedKey(nonOwnerAccount).send({ from: organizationOwner });
-      assert.equal(Object.keys(receipt.events).length, 1);
+      assert.equal(Object.keys(receipt.events).length, 3);
+      const validity = Number(await time.latest()) + 31536000;
+      await ethereumDIDRegistry.methods.addDelegate(accounts[0], delegateTypes.Secp256k1VerificationKey2018, accounts[1], validity);
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(
+          organization.address, web3.utils.sha3(delegateTypes.Secp256k1VerificationKey2018), nonOwnerAccount
+        ).call(),
+        validity
+      );
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(
+          organization.address, web3.utils.sha3(delegateTypes.Secp256k1SignatureAuthentication2018), nonOwnerAccount
+        ).call(),
+        validity
+      );
       assert.equal(receipt.events.AssociatedKeyAdded.returnValues.associatedKey, nonOwnerAccount);
       assert.equal(receipt.events.AssociatedKeyAdded.returnValues.index, 1);
       assert.equal(await organization.methods.associatedKeysIndex(nonOwnerAccount).call(), 1);
@@ -283,8 +304,37 @@ contract('Organization', (accounts) => {
   describe('removeAssociatedKey', async () => {
     it('should remove an existing associatedKey and emit', async () => {
       await organization.methods.addAssociatedKey(nonOwnerAccount).send({ from: organizationOwner });
+      const validity = Number(await time.latest()) + 31536000;
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(
+          organization.address, web3.utils.sha3(delegateTypes.Secp256k1VerificationKey2018), nonOwnerAccount
+        ).call(),
+        validity
+      );
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(
+          organization.address, web3.utils.sha3(delegateTypes.Secp256k1SignatureAuthentication2018), nonOwnerAccount
+        ).call(),
+        validity
+      );
       const receipt = await organization.methods.removeAssociatedKey(nonOwnerAccount).send({ from: organizationOwner });
-      assert.equal(Object.keys(receipt.events).length, 1);
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(
+          organization.address, web3.utils.sha3(delegateTypes.Secp256k1VerificationKey2018), nonOwnerAccount
+        ).call(),
+        await time.latest()
+      );
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(
+          organization.address, web3.utils.sha3(delegateTypes.Secp256k1SignatureAuthentication2018), nonOwnerAccount
+        ).call(),
+        await time.latest()
+      );
+      assert.equal(
+        await ethereumDIDRegistry.methods.delegates(organization.address, DELEGATE_ID_HASH, nonOwnerAccount).call(),
+        0
+      );
+      assert.equal(Object.keys(receipt.events).length, 3);
       assert.equal(receipt.events.AssociatedKeyRemoved.returnValues.associatedKey, nonOwnerAccount);
       assert.equal(await organization.methods.hasAssociatedKey(nonOwnerAccount).call(), false);
       assert.equal(await organization.methods.associatedKeys(1).call(), help.zeroAddress);

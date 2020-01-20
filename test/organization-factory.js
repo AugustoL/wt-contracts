@@ -19,6 +19,7 @@ const OrganizationUpgradeabilityTest = Contracts.getFromLocal('OrganizationUpgra
 const AbstractOrganizationFactory = artifacts.require('AbstractOrganizationFactory');
 const SegmentDirectory = Contracts.getFromLocal('SegmentDirectory');
 const AbstractSegmentDirectory = artifacts.require('AbstractSegmentDirectory');
+const EthereumDIDRegistry = Contracts.getFromLocal('EthereumDIDRegistry');
 
 contract('OrganizationFactory', (accounts) => {
   const organizationFactoryOwner = accounts[1];
@@ -44,7 +45,9 @@ contract('OrganizationFactory', (accounts) => {
       initFunction: 'initialize',
       initArgs: [organizationFactoryOwner, 'foodtrucks', help.zeroAddress],
     });
+    const ethereumDIDRegistry = await EthereumDIDRegistry.new();
     organizationFactory = await OrganizationFactory.at(organizationFactoryProxy.address);
+    await organizationFactory.methods.setEthereumDIDRegistry(ethereumDIDRegistry.address).send({ from: organizationFactoryOwner });
     abstractOrganizationFactory = await AbstractOrganizationFactory.at(organizationFactoryProxy.address);
     abstractDirectory = await AbstractSegmentDirectory.at(segmentDirectoryProxy.address);
   });
