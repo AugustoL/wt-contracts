@@ -3,6 +3,7 @@ pragma solidity ^0.5.6;
 import "openzeppelin-solidity/contracts/introspection/ERC165.sol";
 import "./OrganizationInterface.sol";
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
+import "./EthereumDIDRegistry.sol";
 
 /**
  * @title Organization
@@ -14,7 +15,23 @@ import "@openzeppelin/upgrades/contracts/Initializable.sol";
 contract Organization is OrganizationInterface, ERC165, Initializable {
     // Address of the contract owner
     address _owner;
+    
+    // Ethereum DID Registry address
+    address public _ethereumDIDRegistry;
+    
+    // Standard validity for Ethereum DID Registry WT Records of 10 Years
+    uint256 public constant STANDARD_VALIDITY = 31536000;
+    
+    // did/svc/WindingTreeURI Service attribute for WT Organizations
+    bytes32 public constant WindingTreeURIAttribute = 0x6469642f7376632f57696e64696e675472656555524900000000000000000000;
+    // did/svc/WindingTreeHash Service attribute for WT Organizations
+    bytes32 public constant WindingTreeHashAttribute = 0x6469642f7376632f57696e64696e675472656548617368000000000000000000;
+    
+    // Ethereum DID Registry delegate types
+    bytes32 public constant Secp256k1SignatureAuthentication2018 = 0x7369674175746800000000000000000000000000000000000000000000000000;
+    bytes32 public constant Secp256k1VerificationKey2018 = 0x766572694b657900000000000000000000000000000000000000000000000000;
 
+    
     // Arbitrary locator of the off-chain stored Organization data
     // This might be an HTTPS resource, IPFS hash, Swarm address...
     // This is intentionally generic.
@@ -73,6 +90,7 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
         require(__owner != address(0), 'Organization: Cannot set owner to 0x0 address');
         require(bytes(_orgJsonUri).length != 0, 'Organization: orgJsonUri cannot be an empty string');
         require(_orgJsonHash != 0, 'Organization: orgJsonHash cannot be empty');
+        _ethereumDIDRegistry = 0xdCa7EF03e98e0DC2B855bE647C39ABe984fcF21B;
         emit OwnershipTransferred(_owner, __owner);
         _owner = __owner;        
         orgJsonUri = _orgJsonUri;
@@ -107,8 +125,12 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
      */
     function changeOrgJsonUri(string memory _orgJsonUri) public onlyOwner {
         require(bytes(_orgJsonUri).length != 0, 'Organization: orgJsonUri cannot be an empty string');
-        emit OrgJsonUriChanged(orgJsonUri, _orgJsonUri);
         orgJsonUri = _orgJsonUri;
+        EthereumDIDRegistry(_ethereumDIDRegistry).setAttribute(
+            address(this), WindingTreeURIAttribute, bytes(_orgJsonUri), STANDARD_VALIDITY
+        );
+        emit OrgJsonUriChanged(orgJsonUri, _orgJsonUri);
+
     }
 
     /**
@@ -125,8 +147,11 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
      */
     function changeOrgJsonHash(bytes32 _orgJsonHash) public onlyOwner {
         require(_orgJsonHash != 0, 'Organization: orgJsonHash cannot be empty');
-        emit OrgJsonHashChanged(orgJsonHash, _orgJsonHash);
         orgJsonHash = _orgJsonHash;
+        EthereumDIDRegistry(_ethereumDIDRegistry).setAttribute(
+            address(this), WindingTreeHashAttribute, abi.encodePacked(_orgJsonHash), STANDARD_VALIDITY
+        );
+        emit OrgJsonHashChanged(orgJsonHash, _orgJsonHash);
     }
 
     /**
@@ -158,6 +183,8 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
     function addAssociatedKey(address addr) public onlyOwner returns(address) {
         require(addr != address(0), 'Organization: Cannot add associatedKey with 0x0 address');
         require(associatedKeysIndex[addr] == 0, 'Organization: Cannot add associatedKey twice');
+        EthereumDIDRegistry(_ethereumDIDRegistry).addDelegate(address(this), Secp256k1SignatureAuthentication2018, addr, STANDARD_VALIDITY);
+        EthereumDIDRegistry(_ethereumDIDRegistry).addDelegate(address(this), Secp256k1VerificationKey2018, addr, STANDARD_VALIDITY);
         associatedKeysIndex[addr] = associatedKeys.length;
         associatedKeys.push(addr);
         emit AssociatedKeyAdded(addr, associatedKeysIndex[addr]);
@@ -171,6 +198,8 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
     function removeAssociatedKey(address addr) public onlyOwner {
         require(addr != address(0), 'Organization: Cannot remove associatedKey with 0x0 address');
         require(associatedKeysIndex[addr] != uint(0), 'Organization: Cannot remove unknown organization');
+        EthereumDIDRegistry(_ethereumDIDRegistry).revokeDelegate(address(this), Secp256k1SignatureAuthentication2018, addr);
+        EthereumDIDRegistry(_ethereumDIDRegistry).revokeDelegate(address(this), Secp256k1VerificationKey2018, addr);
         delete associatedKeys[associatedKeysIndex[addr]];
         delete associatedKeysIndex[addr];
         emit AssociatedKeyRemoved(addr);
@@ -198,8 +227,17 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
      */
     function transferOwnership(address payable newOwner) public onlyOwner {
         require(newOwner != address(0), 'Organization: Cannot transfer to 0x0 address');
+        EthereumDIDRegistry(_ethereumDIDRegistry).changeOwner(address(this), newOwner);
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
+    }
+    
+    /**
+     * @dev Allows the current owner to set the Ethereum DID Registry address.
+     * @param ethereumDIDRegistryAddress The address Ethereum DID Regsitry
+     */
+    function setEthereumDIDRegistry(address ethereumDIDRegistryAddress) public onlyOwner {
+        _ethereumDIDRegistry = ethereumDIDRegistryAddress;
     }
 
     /**
@@ -208,7 +246,6 @@ contract Organization is OrganizationInterface, ERC165, Initializable {
     function owner() public view returns (address) {
         return _owner;
     }
-
 
     /**
      * @dev A synchronization method that should be kept up to date with 

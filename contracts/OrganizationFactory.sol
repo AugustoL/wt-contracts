@@ -3,6 +3,7 @@ pragma solidity ^0.5.6;
 import "./AbstractOrganizationFactory.sol";
 import "./AbstractSegmentDirectory.sol";
 import "./Organization.sol";
+import "./EthereumDIDRegistry.sol";
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import "@openzeppelin/upgrades/contracts/application/App.sol";
 
@@ -28,6 +29,9 @@ contract OrganizationFactory is Initializable, AbstractOrganizationFactory {
 
     // Mapping of organizations position in the general created organization index
     mapping(address => uint) _createdOrganizationsIndex;
+    
+    // Ethereum DID Registry address
+    address public _ethereumDIDRegistry;
 
     /**
      * @dev `createOrganization` Create new organization upgradeable contract.
@@ -99,6 +103,7 @@ contract OrganizationFactory is Initializable, AbstractOrganizationFactory {
         _createdOrganizationsIndex[newOrganizationAddress] = _createdOrganizations.length;
         _createdOrganizations.push(newOrganizationAddress);
         Organization o = Organization(newOrganizationAddress);
+        o.setEthereumDIDRegistry(_ethereumDIDRegistry);
         o.transferOwnership(msg.sender);
         emit OrganizationCreated(newOrganizationAddress);
         return newOrganizationAddress;
@@ -112,6 +117,7 @@ contract OrganizationFactory is Initializable, AbstractOrganizationFactory {
     function initialize(address payable __owner, App _app) public initializer {
         require(__owner != address(0), 'OrganizationFactory: Cannot set owner to 0x0 address');
         require(address(_app) != address(0), 'OrganizationFactory: Cannot set app to 0x0 address');
+        _ethereumDIDRegistry = 0xdCa7EF03e98e0DC2B855bE647C39ABe984fcF21B;
         _owner = __owner;
         app = _app;
         _createdOrganizations.length++;
@@ -163,6 +169,14 @@ contract OrganizationFactory is Initializable, AbstractOrganizationFactory {
      */
     function transferOwnership(address payable newOwner) public onlyOwner {
         _transferOwnership(newOwner);
+    }
+    
+    /**
+     * @dev Allows the current owner to set the Ethereum DID Registry address.
+     * @param ethereumDIDRegistryAddress The address Ethereum DID Regsitry
+     */
+    function setEthereumDIDRegistry(address ethereumDIDRegistryAddress) public onlyOwner {
+        _ethereumDIDRegistry = ethereumDIDRegistryAddress;
     }
 
     /**
